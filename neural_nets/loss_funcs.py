@@ -19,13 +19,8 @@ def softmax2(x):
     return exp / np.sum(exp, axis=0, keepdims=True)
 
 def cross_entropy_loss(y_true, y_pred):
-    # m = y_true.shape[1]
     p = np.log(softmax2(y_pred))
-    # print(y_true,p)
-    # print(y_true * p)
-    m = y_true * p
     loss = -np.sum(y_true * p) 
-    # print(loss)
     return loss
 
 def mse_loss(y,y_hat):
