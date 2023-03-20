@@ -15,7 +15,9 @@ class DNN:
         self.w_2 = np.random.normal(scale=0.5, size=(300,200))
         self.w_3 = np.random.normal(scale=0.5, size=(200,10))
 
-        self.loss_func = nn.CrossEntropyLoss()
+        # self.loss_func2 = nn.CrossEntropyLoss()
+        self.loss_func = cross_entropy_loss
+
 
     def feed_forward(self,X):
         inputs = []
@@ -46,16 +48,16 @@ class DNN:
     def predict(self,X):
         inputs = []
         results = []
-
+        X = X.T
         inputs.append(X.T)
-        o1 = sigmoid(X.T@self.w_1)
-        
+
+        o1 = sigmoid(self.w_1.T@X.T)
+
         results.append(o1)
 
         inputs.append(o1)
 
-        
-        o2 = sigmoid(self.w_2.T@o1.T)
+        o2 = sigmoid(self.w_2.T@o1)
 
         results.append(o2)
 
@@ -74,13 +76,14 @@ class DNN:
         return preds
 
 
-    def back_pass(self,inputs,results,y,lr):
+    def back_pass(self,inputs,results,y,lr,bs):
         preds = self.predict(inputs[0]).to(torch.float64).cuda()
         y_tensor = torch.from_numpy(y).to(torch.float64).cuda()
         
         # print(preds,y_tensor)
-        err =self.loss_func(preds,y_tensor).cpu().numpy()
-
+        
+        err =self.loss_func(y_tensor.cpu().numpy(),preds.cpu().numpy())/(bs*10)
+        # print(err)
         out_bp = softmax_d(results[-1],y)
         out_delta = err*out_bp
 
@@ -93,32 +96,39 @@ class DNN:
         l1_delta = l1_err * l1_bp
         
         # print(y.size)
-        self.w_3 -= lr* ((inputs[2]@out_delta.T)/y.size)
-        self.w_2 -= lr*((inputs[1]@l2_delta.T)/y.size)
-        self.w_1 -= lr*((inputs[0]@l1_delta.T)/y.size)
+        self.w_3 -= lr* ((inputs[2]@out_delta.T))
+        self.w_2 -= lr*((inputs[1]@l2_delta.T))
+        self.w_1 -= lr*((inputs[0]@l1_delta.T))
 
         
-    def train(self,X,y,lr=0.000001,batch=64):
+    def train(self,X,y,lr=0.001,batch=64):
         epoch = 0
         loss = 1
+        y_tensor = torch.from_numpy(y).to(torch.float64)
         while epoch < 10000 or loss < 0.01:
             b = 0
+            iters = 0
+            running_loss = 0.0
             while (b+1)*batch < X.shape[0]:
                 ps = np.random.choice(X.shape[0], batch, replace=False)
                 X_batch = X[ps,:]
                 y_batch = y[ps]
 
                 ins,outs = self.feed_forward(X_batch)
-                self.back_pass(ins,outs,y_batch,lr)
+                self.back_pass(ins,outs,y_batch,lr,batch)
                 b+=1
                 
-            
-            preds = self.predict(X.T)
-            loss = np.count_nonzero(preds-y)/y.size
-            print(f"Loss {loss}")
+                ins = self.predict(X_batch.T).to(torch.float64).numpy()
+                y_batch = torch.from_numpy(y_batch).to(torch.float64).numpy()
+                running_loss += self.loss_func(ins,y_batch)/(batch*10)
+                
+            iters+=b
+            # preds = self.predict(X.T)
+            # loss = np.count_nonzero(preds-y)/y.size
+            err =running_loss/b
+            print(f"Loss: {err} Iterations: {iters}")
             epoch += 1
 if __name__ == "__main__":
-    from sklearn import preprocessing
 
 
     (train_images, train_labels), (test_images, test_labels) = tf.keras.datasets.mnist.load_data()
