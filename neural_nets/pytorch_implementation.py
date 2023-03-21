@@ -25,12 +25,15 @@ def train():
     net = DNN()
     net.cuda()
     criterion = nn.CrossEntropyLoss()
-    optimizer = optim.SGD(net.parameters(), lr=0.001)
+    optimizer = optim.SGD(net.parameters(), lr=0.01)
 
     trainset = torchvision.datasets.MNIST(root='./data', train=True, download=True, transform=transforms.ToTensor())
     trainloader = torch.utils.data.DataLoader(trainset, batch_size=64, shuffle=True)
 
-    for epoch in range(10):  # loop over the dataset multiple times
+    testset = torchvision.datasets.MNIST(root='./data', train=False, download=True, transform=transforms.ToTensor())
+    testloader = torch.utils.data.DataLoader(testset, batch_size=64, shuffle=False, num_workers=2)
+
+    for epoch in range(1500):  # loop over the dataset multiple times
 
         running_loss = 0.0
         for i, data in enumerate(trainloader, 0):
@@ -51,6 +54,22 @@ def train():
                 print('[%d, %5d] loss: %.3f' %
                     (epoch + 1, i + 1, running_loss / 500))
                 running_loss = 0.0
+        
+        with torch.no_grad():
+            total = 0
+            correct = 0
+            for data in testloader:
+                images, labels = data
+                images = images.to(device)
+                labels = labels.to(device)
+                
+            
+                outputs = net(images.view(-1, 784))
+                _, predicted = torch.max(outputs.data, 1)
+                total += labels.size(0)
+                correct += (predicted == labels).sum().item()
+
+            print('Accuracy of the network on the test images: %d %%' % (100 * correct / total))
 
 if __name__ == "__main__":
     train()
