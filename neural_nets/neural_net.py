@@ -11,110 +11,104 @@ from loss_funcs import *
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 class DNN:
     def __init__(self):
-        self.w_1 = np.random.normal(scale=0.5, size=(28*28,300))
-        self.w_2 = np.random.normal(scale=0.5, size=(300,200))
-        self.w_3 = np.random.normal(scale=0.5, size=(200,10))
+        # self.w_1 = np.random.normal(scale=0.5, size=(28*28,300))
+        self.w_1 = torch.randn((28*28,300)).numpy()*np.sqrt(2/(300))
+        # self.w_2 = np.random.normal(scale=0.5, size=(300,200))
+        self.w_2 = torch.randn((300,200)).numpy()*np.sqrt(2/ ((200)))
+        # self.w_3 = np.random.normal(scale=0.5, size=(200,10))
+        self.w_3 = torch.randn((200,10)).numpy()*np.sqrt(2/ ((10) ))
 
-        # self.loss_func2 = nn.CrossEntropyLoss()
-        self.loss_func = cross_entropy_loss
+        self.loss_func = nn.CrossEntropyLoss()
+        # self.loss_func = cross_entropy_loss
 
 
     def feed_forward(self,X):
         inputs = []
         results = []
 
-        inputs.append(X)
+        inputs.append(X.T)
 
-        o1 = sigmoid(self.w_1.T@X)
+        o1 = sigmoid(X.T@self.w_1)
 
         results.append(o1)
 
         inputs.append(o1)
 
-        o2 = sigmoid(self.w_2.T@o1)
+        o2 = sigmoid(o1@self.w_2)
 
         results.append(o2)
 
         inputs.append(o2)
-
-        outs = softmax(self.w_3.T@o2)
+        
+        outs = softmax(o2@self.w_3)
 
         results.append(outs)
 
         
         return inputs,results
-    
-    def predict(self,X):
-        inputs = []
-        results = []
-        # X = X.T
-        inputs.append(X)
-
-        o1 = sigmoid(self.w_1.T@X)
-
-        results.append(o1)
-
-        inputs.append(o1)
-
-        o2 = sigmoid(self.w_2.T@o1)
-
-        results.append(o2)
-
-        inputs.append(o2)
-
-        outs = softmax(self.w_3.T@o2)
-
-        results.append(outs)
-
-        inputs.append(outs)
         
-        # print(results[-1])
-        preds = torch.argmax(torch.from_numpy(results[-1]), dim=0)
+
+    def predict(self,X):
+
+
+
+
+        o1 = sigmoid(X.T@self.w_1)
+
+
+        o2 = sigmoid(o1@self.w_2)
+
+
+
+        outs = softmax(o2@self.w_3)
+
+
+        preds = torch.argmax(torch.from_numpy(outs), dim=1)
         
         preds = preds.to(torch.float64)
 
-        return preds
+        return preds.numpy()
 
 
     def back_pass(self,inputs,results,y,lr,bs):
-        # preds = self.predict(inputs[0]).to(torch.float64).cuda()
-        # y_tensor = torch.from_numpy(y).to(torch.float64).cuda()
-        
+
         y = y.astype(float)
-        
-        err =(results[-1].T-y)
+        # print(results[-1])
+        err = self.loss_func(torch.from_numpy(results[-1]),torch.from_numpy(y))
         # print(err)
-        final = softmax_derivative(results[-1])
+        final = softmax_d(results[-2],y)
         # print(err.shape,final.shape)
         # print((results[-1].T-y))
-        out_delta = err*final.T
+        out_delta = final
         # print(out_delta)
         # exit()
 
-        # print(self.w_3.shape,final.shape)
+        # print(final.shape,self.w_3.T.shape)
         l2_bp = sigmoid_p(results[-2])
-        l2_err = self.w_3@final
+        l2_err = final@self.w_3.T
         l2_delta = l2_err * l2_bp
 
         # print(self.w_2.shape,l2_delta.shape)
         l1_bp = sigmoid_p(results[-3])
-        l1_err = self.w_2@l2_delta
+        l1_err = l2_delta@self.w_2.T
 
         # print(l1_err.shape , l1_bp.T.shape)
     
         l1_delta = l1_err * l1_bp
         
-        # print(inputs[2].shape,out_delta.T.shape)
-        self.w_3 -= lr* ((inputs[2]@out_delta)/bs)
-        self.w_2 -= lr*((inputs[1]@l2_delta.T)/bs)
-        self.w_1 -= lr*((inputs[0]@l1_delta.T)/bs)
+
+        # print(inputs[2].T.shape,out_delta.shape)
+        self.w_3 -= lr* ((inputs[2].T@out_delta)/bs)
+        self.w_2 -= lr*((inputs[1].T@l2_delta)/bs)
+        self.w_1 -= lr*((inputs[0].T@l1_delta)/bs)
+
         return err
 
         
-    def train(self,X,y,lr=0.01,batch=32):
+    def train(self,X,y,lr=0.01,batch=128):
         epoch = 0
         loss = 1
-        y_tensor = torch.from_numpy(y).to(torch.float64)
+        # y_tensor = torch.from_numpy(y).to(torch.float64)
         while epoch < 10000 or loss < 0.01:
             b = 0
             iters = 0
@@ -124,12 +118,14 @@ class DNN:
                 X_batch = X[:,ps]
                 y_batch = y[ps]
 
-                ins,outs = self.feed_forward(X_batch)
-                old_loss = self.back_pass(ins,outs,y_batch,lr,batch)
-                b+=1
-                
+                # ins,outs = self.feed_forward(X_batch)
+                # old_loss = self.back_pass(ins,outs,y_batch,lr,batch)
+                # b+=1
+
+                forwards = self.feed_forward_attempt2(X_batch)
+                self.back_pass2(forwards,y_batch,lr)
             
-                running_loss += old_loss
+                running_loss += 0#old_loss
                 
             iters+=b
             preds = self.predict(X)
@@ -138,8 +134,10 @@ class DNN:
             print(y.shape)
             loss = np.count_nonzero(preds-np.argmax(y,axis=1))/y.shape[0]
             err =running_loss/b
-            print(f" Epoch: {epoch} Iterations: {iters} MSE: {loss} Misses:{misses}")
+            print(f" Loss:{err} Epoch: {epoch} Iterations: {iters} MSE: {loss} Misses:{misses}")
             epoch += 1
+
+
 if __name__ == "__main__":
     from sklearn import preprocessing
     ohe = preprocessing.OneHotEncoder()
@@ -152,6 +150,7 @@ if __name__ == "__main__":
     X_train = train_images.reshape(-1,train_images.shape[0])
     X_test = test_images.reshape(-1,test_images.shape[0])
     
+    # X_train = X_train.astype(float)
     X_train = X_train/255
     y_train = train_labels.reshape(-1, 1)
     ohe.fit(y_train)

@@ -16,14 +16,14 @@ def log_loss(y,y_hat):
 
 def softmax2(x):
     exp = np.exp(x)
-    return exp / np.sum(exp, axis=0, keepdims=True)
+    return exp / np.sum(exp, axis=1, keepdims=True)
 
 def cross_entropy_loss(y_true, y_pred):
     # print(y_true.shape,y_pred.shape)
-    p = np.log(y_pred)
+    p = -np.log(softmax2(y_pred))
     # print(y_true.shape,p.shape)
     # print(y_true.T * p)
-    loss = -np.sum(y_true.T * p,axis=0)
+    loss = np.sum(y_true * p)
     # print(loss) 
     return loss
 

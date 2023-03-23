@@ -37,8 +37,8 @@ class NaiveBayes:
                 self.priors[i] = X_c.shape[0]/X.shape[0]
             else:
                 #Definition of priors in homework
-                self.priors[i] = (X_c.shape[0]+self.alpha)/(X.shape[0]+(len(self.classes)*self.alpha))
-                # print(f"Prior Probabilities: {self.priors[i]} for {label_map[i]} ")
+
+                print(f"Prior Probabilities: {(X_c.shape[0]+self.alpha)}/{(X.shape[0]+(len(self.classes)*self.alpha))} for {label_map[i]} ")
 
             if self.dist == "gaus":
                 means = []
